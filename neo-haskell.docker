@@ -1,0 +1,121 @@
+# Based on Alejandro Russo's docker neo-h docker image.
+
+# Build bat and tree-sitter dependencies
+FROM rust:slim AS rust
+RUN cargo install bat
+RUN cargo install tree-sitter-cli
+
+# Build lazygit
+FROM golang:bookworm AS golang
+ENV GOBIN=/usr/local/bin/
+RUN go install github.com/jesseduffield/lazygit@latest
+
+# Build fzf and neovim 
+FROM debian:stable AS build 
+
+RUN apt-get update && apt-get install -y git curl cmake gettext
+
+# Fuzzy find filer
+RUN git clone --depth 1 https://github.com/junegunn/fzf.git /tmp/fzf
+WORKDIR /tmp/fzf
+RUN ./install --all  
+
+# Neovim 
+RUN curl -LO https://github.com/neovim/neovim/archive/refs/tags/stable.tar.gz && \
+    tar -C /tmp -xzf stable.tar.gz
+WORKDIR /tmp/neovim-stable/
+RUN make CMAKE_BUILD_TYPE=Release CMAKE_INSTALL_PREFIX=/opt/nvim install
+
+# Floskell Haskell formatter
+FROM haskell:9.4-slim as haskell
+WORKDIR /root/
+RUN git clone --depth 1 https://github.com/alexgerdes/floskell.git
+WORKDIR /root/floskell/
+RUN cabal update && cabal install 
+
+## Main stage #################################################################
+FROM debian:stable
+
+# Meta data about the image
+LABEL maintainer="alexg@chalmers.se"
+LABEL version="0.1"
+LABEL description="Development with Neovim and GHC"
+
+# Arguments
+ARG GIT_USER="Alex Gerdes"
+ARG GIT_MAIL="alexg@chalmers.se"
+ARG GHC=recommended
+ARG CABAL=recommended
+ARG HLS=recommended
+
+# Set working directory
+ENV WORKINGDIR=/root
+WORKDIR $WORKINGDIR
+
+# Install base system utilities and dependencies
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+      sudo ssh git wget curl gpg zsh tree \
+      locales locales-all ca-certificates lsb-release less zlib1g-dev
+
+# Install ghcup dependencies
+RUN apt-get install -y --no-install-recommends \
+      build-essential libffi-dev libgmp-dev libgmp10 \
+      libncurses-dev libncurses5 libtinfo5
+
+# Install useful command line tools
+RUN apt-get install -y trash-cli coreutils unzip npm ripgrep fd-find 
+
+# Use US as language and UTF-8 as encoding 
+RUN locale-gen en_US.UTF-8 && \
+    update-locale
+ENV LC_ALL=en_US.UTF-8 \
+    LANG=en_US.UTF-8 \
+    LANGUAGE=en_US:en \
+    LC_CTYPE=en_US.UTF-8
+ENV TZ=Europe/Stockholm
+
+# Add github to SSH known hosts, the launch script will use SSH agent forwarding
+RUN mkdir ~/.ssh && \
+    touch ~/.ssh/known_hosts && \ 
+    ssh-keyscan github.com >> ~/.ssh/known_hosts && \
+    ssh-keyscan git.chalmers.se >> ~/.ssh/known_hosts
+
+# Haskell
+ENV BOOTSTRAP_HASKELL_NONINTERACTIVE=yes \
+    BOOTSTRAP_HASKELL_GHC_VERSION=$GHC \
+    BOOTSTRAP_HASKELL_CABAL_VERSION=$CABAL
+RUN curl --proto '=https' --tlsv1.2 -sSf https://get-ghcup.haskell.org | sh
+ENV PATH=$WORKINGDIR/.ghcup/bin:$WORKINGDIR/.local/bin:$WORKINGDIR/.cabal/bin:$PATH
+
+# Configure GIT 
+RUN git config --global user.name $GIT_USER && \
+    git config --global user.email $GIT_MAIL
+
+# Install neovim and utilities from previous builds
+COPY --from=build /opt/nvim /opt/nvim
+ENV PATH=/opt/nvim/bin:$PATH
+COPY --from=rust /usr/local/cargo/bin/bat /usr/local/bin/
+COPY --from=rust /usr/local/cargo/bin/tree-sitter /usr/local/bin/
+COPY --from=build /tmp/fzf/bin/fzf /usr/local/bin/
+COPY --from=haskell /root/.local/bin/floskell /usr/local/bin/
+COPY --from=golang /usr/local/bin/lazygit /usr/local/bin/
+
+# Configuration of ZSH terminal and Neovim
+RUN sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)"
+RUN git clone --depth=1 https://github.com/romkatv/powerlevel10k.git ${ZSH_CUSTOM:-$HOME/.oh-my-zsh/custom}/themes/powerlevel10k
+RUN ${WORKINGDIR}/.oh-my-zsh/custom/themes/powerlevel10k/gitstatus/install
+COPY dotfiles/.config ${WORKINGDIR}/.config
+COPY dotfiles/.zshrc ${WORKINGDIR}/
+COPY dotfiles/.dircolors ${WORKINGDIR}/
+COPY dotfiles/.floskell.json ${WORKINGDIR}/
+COPY zsh/. ${WORKINGDIR}/
+
+# Installing plugins, language servers and formatters Neovim  
+RUN nvim -c "silent! PlugInstall" +qa
+RUN nvim --headless +"MasonUpdate" +qa
+RUN nvim --headless +"MasonInstall marksman stylua lua-language-server prettier haskell-language-server" +qa
+# RUN nvim --headless +"MasonInstall ltex-ls texlab" +qa
+RUN nvim --headless +"TSInstall haskell" +"sleep 5" +qa
+
+ENTRYPOINT ["/bin/zsh"]
