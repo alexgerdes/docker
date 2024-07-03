@@ -43,7 +43,12 @@ persistent.
 
 Furthermore, the script uses SSH agent forwarding to make your local SSH key
 available in the container, such that you can connect to, for example, GitHub.
-Make sure you to make your key available to the ssh-agent with `ssh-add`.
+Make sure you to make your key available to the ssh-agent with `ssh-add`. On
+MacOS you can run:
+
+```bash
+ssh-add --apple-use-keychain <path-to-key> 
+```
 
 # Configuration 
 
