@@ -64,9 +64,11 @@ RUN apt-get install -y --no-install-recommends \
       libncurses-dev libncurses5 libtinfo5
 
 # Install useful command line tools
-RUN apt-get install -y trash-cli coreutils unzip npm ripgrep fd-find 
+RUN apt-get install -y trash-cli coreutils unzip npm ripgrep fd-find luarocks
 
-# Use US as language and UTF-8 as encoding 
+RUN luarocks install jsregexp
+
+# Use US as language and UTF-:WORKDIR name8 as encoding 
 RUN locale-gen en_US.UTF-8 && \
     update-locale
 ENV LC_ALL=en_US.UTF-8 \
@@ -116,6 +118,6 @@ RUN nvim -c "silent! PlugInstall" +qa
 RUN nvim --headless +"MasonUpdate" +qa
 RUN nvim --headless +"MasonInstall marksman stylua lua-language-server prettier haskell-language-server" +qa
 # RUN nvim --headless +"MasonInstall ltex-ls texlab" +qa
-RUN nvim --headless +"TSInstall haskell" +"sleep 5" +qa
+# RUN nvim --headless +"TSInstall haskell" +"sleep 5" +qa
 
 ENTRYPOINT ["/bin/zsh"]
