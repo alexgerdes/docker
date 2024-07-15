@@ -1,0 +1,41 @@
+FROM mcr.microsoft.com/devcontainers/base:alpine
+
+# Meta data
+LABEL maintainer="alexg@chalmers.se"
+LABEL version="0.1"
+LABEL description="Development with GHC for the Intro FP course."
+
+# Build arguments
+ARG HLS=false
+
+# User configuration
+ENV USER_NAME=vscode
+ENV HOME=/home/${USER_NAME}
+WORKDIR ${HOME}
+
+# Install tools
+RUN apk update && \
+    apk add --no-cache ghc cabal fzf ripgrep lazygit neovim bat tree-sitter
+
+# Run next commands as user
+RUN chown -R ${USER_NAME}:${USER_NAME} ${HOME}
+USER ${USER_NAME} 
+
+# Add cabal bin path
+ENV PATH=$PATH:${HOME}/.local/bin
+
+# Install HLS
+RUN if $HLS ; then cabal update && cabal install --enable-executable-static --enable-executable-stripping --disable-debug-info haskell-language-server ; fi
+
+# Use nice command line theme
+RUN git clone --depth=1 https://github.com/romkatv/powerlevel10k.git ${ZSH_CUSTOM:-$HOME/.oh-my-zsh/custom}/themes/powerlevel10k
+RUN ${HOME}/.oh-my-zsh/custom/themes/powerlevel10k/gitstatus/install
+
+COPY zsh/.zshrc.introfp ${HOME}/.zshrc
+COPY zsh/.p10k.zsh.introfp ${HOME}/.p10k.zsh
+
+# Fix spurious issue with git ownership
+RUN git config --global --add safe.directory '*'
+
+# Start with ZSH
+ENTRYPOINT ["/bin/zsh"]

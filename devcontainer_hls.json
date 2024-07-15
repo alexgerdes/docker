@@ -1,0 +1,29 @@
+{
+  "name": "Intro FP",
+  "image": "agerdes/intro-fp-hls:latest",
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "justusadam.language-haskell",
+        "haskell.haskell"
+      ],
+      "settings": {
+        "haskell.checkProject": true,
+        "haskell.formattingProvider": "none",
+        "haskell.indentationRules.enabled": true,
+        "haskell.liquidOn": false,
+        "haskell.checkParents": "CheckOnSave",
+        "haskell.manageHLS": "PATH",
+        "haskell.maxCompletions": 40,
+        "haskell.openDocumentationInHackage": false,
+        "haskell.openSourceInHackage": false,
+        "terminal.integrated.defaultProfile.linux": "zsh",
+        "terminal.integrated.profiles.linux": {
+          "zsh": {
+            "path": "/bin/zsh"
+          }
+        }
+      }
+    }
+  }
+}
