@@ -15,7 +15,7 @@ WORKDIR ${HOME}
 
 # Install tools
 RUN apk update && \
-    apk add --no-cache ghc cabal fzf ripgrep lazygit neovim bat tree-sitter
+    apk add --no-cache ghc cabal fzf ripgrep lazygit neovim bat tree-sitter-cli
 
 # Run next commands as user
 RUN chown -R ${USER_NAME}:${USER_NAME} ${HOME}
@@ -25,7 +25,7 @@ USER ${USER_NAME}
 ENV PATH=$PATH:${HOME}/.local/bin
 
 # Install HLS
-RUN if $HLS ; then cabal update && cabal install --enable-executable-static --enable-executable-stripping --disable-debug-info haskell-language-server ; fi
+RUN if $HLS ; then cabal update && cabal install haskell-language-server ; fi
 
 # Use nice command line theme
 RUN git clone --depth=1 https://github.com/romkatv/powerlevel10k.git ${ZSH_CUSTOM:-$HOME/.oh-my-zsh/custom}/themes/powerlevel10k
