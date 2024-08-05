@@ -27,7 +27,7 @@ WORKDIR /tmp/neovim-stable/
 RUN make CMAKE_BUILD_TYPE=Release CMAKE_INSTALL_PREFIX=/opt/nvim install
 
 # Floskell Haskell formatter
-FROM haskell:9.4-slim as haskell
+FROM haskell:9.4-slim AS haskell
 WORKDIR /root/
 RUN git clone --depth 1 https://github.com/alexgerdes/floskell.git
 WORKDIR /root/floskell/
