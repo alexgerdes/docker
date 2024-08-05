@@ -1,0 +1,74 @@
+# Floskell Haskell formatter
+FROM alpine:3.20 AS floskell
+
+RUN apk add --no-cache git ghc cabal musl musl-dev
+WORKDIR /root/
+RUN git clone --depth 1 https://github.com/alexgerdes/floskell.git
+WORKDIR /root/floskell/
+RUN cabal update && cabal install 
+
+## Main stage #################################################################
+FROM alpine:3.20
+
+# Meta data about the image
+LABEL maintainer="alexg@chalmers.se"
+LABEL version="0.1"
+LABEL description="Development with Neovim and GHC"
+
+# Arguments
+ARG GIT_USER="Alex Gerdes"
+ARG GIT_MAIL="alexg@chalmers.se"
+# ARG GHC=recommended
+# ARG CABAL=recommended
+# ARG HLS=recommended
+ARG WITH_HLS=false
+
+# Set working directory
+ENV WORKINGDIR=/root
+WORKDIR $WORKINGDIR
+
+# Install tools
+RUN apk add --no-cache \
+  git openssh curl wget zsh tree coreutils gzip unzip tzdata lzlib-dev zlib-dev \
+  lazygit ghc cabal \
+  neovim fzf ripgrep bat tree-sitter-cli fd lua-dev luarocks npm libc-dev python3 gcompat
+
+RUN ln -s /usr/bin/luarocks-5.1 /usr/bin/luarocks && \
+    ln -s /usr/bin/luarocks-admin-5.1 /usr/bin/luarocks-admin && \
+    luarocks install jsregexp
+
+RUN if $WITH_HLS ; then cabal update && cabal install haskell-language-server ; fi
+
+ENV TZ=Europe/Stockholm
+ENV PATH=$PATH:$WORKINGDIR/.local/bin
+
+# Add github to SSH known hosts, the launch script will use SSH agent forwarding
+RUN mkdir ~/.ssh && \
+    touch ~/.ssh/known_hosts && \ 
+    ssh-keyscan github.com >> ~/.ssh/known_hosts && \
+    ssh-keyscan git.chalmers.se >> ~/.ssh/known_hosts
+
+# Configure GIT 
+RUN git config --global user.name $GIT_USER && \
+    git config --global user.email $GIT_MAIL
+
+# Copy floskell binary from other build stage
+COPY --from=floskell /root/.local/bin/floskell /usr/local/bin/
+
+# Configuration of ZSH terminal and Neovim
+RUN sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)"
+RUN git clone --depth=1 https://github.com/romkatv/powerlevel10k.git ${ZSH_CUSTOM:-$HOME/.oh-my-zsh/custom}/themes/powerlevel10k
+RUN ${WORKINGDIR}/.oh-my-zsh/custom/themes/powerlevel10k/gitstatus/install
+COPY dotfiles/.config ${WORKINGDIR}/.config
+COPY dotfiles/.zshrc ${WORKINGDIR}/
+COPY dotfiles/.dircolors ${WORKINGDIR}/
+COPY dotfiles/.floskell.json ${WORKINGDIR}/
+COPY zsh/. ${WORKINGDIR}/
+
+# Installing plugins, language servers and formatters Neovim  
+RUN nvim -c "silent! PlugInstall" +qa
+RUN nvim --headless +"MasonUpdate" +qa
+RUN nvim --headless +"MasonInstall --target=linux_arm64_gnu stylua lua-language-server pyright prettier" +qa
+# RUN nvim --headless +"TSInstall haskell" +"sleep 5" +qa
+
+ENTRYPOINT ["/bin/zsh"]
