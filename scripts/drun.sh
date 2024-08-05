@@ -33,6 +33,7 @@ echo "Launching a container from the $IMAGE image..."
 docker run --rm -it \
   --mount type=bind,src=/run/host-services/ssh-auth.sock,target=/run/host-services/ssh-auth.sock \
   -e SSH_AUTH_SOCK="/run/host-services/ssh-auth.sock" \
-  -v ~/.config/zsh_history:/root/zsh_history \
-  -v $WORKDIR:/root/workspace \
+  -v ~/.config/zsh_history:/zsh_history \
+  -v $WORKDIR:/workspace \
+  -w /workspace \
   $IMAGE
