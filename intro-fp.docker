@@ -37,5 +37,8 @@ COPY zsh/.p10k.zsh.introfp ${HOME}/.p10k.zsh
 # Fix spurious issue with git ownership
 RUN git config --global --add safe.directory '*'
 
+# Install dependencies
+RUN cabal update && cabal install --global --lib QuickCheck random ansi-terminal
+
 # Start with ZSH
 ENTRYPOINT ["/bin/zsh"]
