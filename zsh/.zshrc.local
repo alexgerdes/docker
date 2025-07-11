@@ -1,2 +1,4 @@
 export HISTFILE=/zsh_history/.zsh_history
 eval `dircolors ~/.dircolors`
+
+[[ ! -f ~/.nvm/nvm.sh ]] || source ~/.nvm/nvm.sh

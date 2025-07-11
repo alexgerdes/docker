@@ -18,10 +18,6 @@ LABEL description="Development with Neovim and GHC"
 # Arguments
 ARG GIT_USER="Alex Gerdes"
 ARG GIT_MAIL="alexg@chalmers.se"
-# ARG GHC=recommended
-# ARG CABAL=recommended
-# ARG HLS=recommended
-ARG WITH_HLS=false
 
 # Set working directory
 ENV WORKINGDIR=/root
@@ -30,17 +26,16 @@ WORKDIR $WORKINGDIR
 # Install tools
 RUN apk add --no-cache \
   git openssh curl wget zsh tree coreutils gzip unzip tzdata lzlib-dev zlib-dev \
-  lazygit ghc cabal \
-  neovim fzf ripgrep bat tree-sitter-cli fd lua-dev luarocks npm libc-dev python3 gcompat
+  neovim fzf ripgrep bat tree-sitter-cli fd lua-dev luarocks npm libc-dev lazygit \
+  ghc cabal
 
 RUN ln -s /usr/bin/luarocks-5.1 /usr/bin/luarocks && \
     ln -s /usr/bin/luarocks-admin-5.1 /usr/bin/luarocks-admin && \
     luarocks install jsregexp
 
-RUN if $WITH_HLS ; then cabal update && cabal install haskell-language-server ; fi
-
+# Set up environment variables
+ENV PATH=$WORKINGDIR/.local/bin:$WORKINGDIR/.cabal/bin:$PATH
 ENV TZ=Europe/Stockholm
-ENV PATH=$PATH:$WORKINGDIR/.local/bin
 
 # Add github to SSH known hosts, the launch script will use SSH agent forwarding
 RUN mkdir ~/.ssh && \
@@ -62,13 +57,12 @@ RUN ${WORKINGDIR}/.oh-my-zsh/custom/themes/powerlevel10k/gitstatus/install
 COPY dotfiles/.config ${WORKINGDIR}/.config
 COPY dotfiles/.zshrc ${WORKINGDIR}/
 COPY dotfiles/.dircolors ${WORKINGDIR}/
-COPY dotfiles/.floskell.json ${WORKINGDIR}/
 COPY zsh/. ${WORKINGDIR}/
 
 # Installing plugins, language servers and formatters Neovim  
 RUN nvim -c "silent! PlugInstall" +qa
-RUN nvim --headless +"MasonUpdate" +qa
-RUN nvim --headless +"MasonInstall --target=linux_arm64_gnu stylua lua-language-server pyright prettier" +qa
+# RUN nvim --headless +"MasonUpdate" +qa
+# RUN nvim --headless +"MasonInstall --target=linux_arm64_gnu stylua lua-language-server" +qa
 # RUN nvim --headless +"TSInstall haskell" +"sleep 5" +qa
 
 ENTRYPOINT ["/bin/zsh"]

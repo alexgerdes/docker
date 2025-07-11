@@ -64,9 +64,13 @@ RUN apt-get install -y --no-install-recommends \
       libncurses-dev libncurses5 libtinfo5
 
 # Install useful command line tools
-RUN apt-get install -y trash-cli coreutils unzip npm ripgrep fd-find luarocks
+RUN apt-get install -y trash-cli coreutils unzip ripgrep fd-find luarocks python3.11-venv
 
 RUN luarocks install jsregexp
+
+# Install node 
+RUN curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.3/install.sh | bash
+RUN zsh -c "source ~/.nvm/nvm.sh && nvm install 22"
 
 # Use US as language and UTF-:WORKDIR name8 as encoding 
 RUN locale-gen en_US.UTF-8 && \
@@ -115,9 +119,6 @@ COPY zsh/. ${WORKINGDIR}/
 
 # Installing plugins, language servers and formatters Neovim  
 RUN nvim -c "silent! PlugInstall" +qa
-RUN nvim --headless +"MasonUpdate" +qa
-RUN nvim --headless +"MasonInstall marksman stylua lua-language-server prettier haskell-language-server" +qa
-# RUN nvim --headless +"MasonInstall ltex-ls texlab" +qa
-# RUN nvim --headless +"TSInstall haskell" +"sleep 5" +qa
+# RUN nvim -c 'silent TSInstallSync all' -c 'sleep 20' -c 'qall'
 
 ENTRYPOINT ["/bin/zsh"]
