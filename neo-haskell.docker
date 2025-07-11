@@ -118,7 +118,7 @@ COPY dotfiles/.floskell.json ${WORKINGDIR}/
 COPY zsh/. ${WORKINGDIR}/
 
 # Installing plugins, language servers and formatters Neovim  
-RUN nvim -c "silent! PlugInstall" +qa
-# RUN nvim -c 'silent TSInstallSync all' -c 'sleep 20' -c 'qall'
+RUN nvim --headless +"sleep 3" +qa
+RUN nvim --headless +"MasonInstall --target=linux_arm64_gnu stylua lua-language-server" +"sleep 3" +qa
 
 ENTRYPOINT ["/bin/zsh"]

@@ -60,9 +60,7 @@ COPY dotfiles/.dircolors ${WORKINGDIR}/
 COPY zsh/. ${WORKINGDIR}/
 
 # Installing plugins, language servers and formatters Neovim  
-RUN nvim -c "silent! PlugInstall" +qa
-# RUN nvim --headless +"MasonUpdate" +qa
-# RUN nvim --headless +"MasonInstall --target=linux_arm64_gnu stylua lua-language-server" +qa
-# RUN nvim --headless +"TSInstall haskell" +"sleep 5" +qa
+RUN nvim --headless +"sleep 3" +qa
+RUN nvim --headless +"MasonInstall --target=linux_arm64_gnu stylua lua-language-server" +"sleep 3" +qa
 
 ENTRYPOINT ["/bin/zsh"]
