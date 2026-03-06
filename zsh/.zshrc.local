@@ -1,4 +1,27 @@
+# Use persisten zsh history file
 export HISTFILE=/zsh_history/.zsh_history
+
+# Alias for lazygit
+alias lg='lazygit'
+
+# Override ls with gls for dircolors
+alias l='eza -la --git --time-style relative --icons=auto --no-permissions --octal-permissions --group'
+# alias l='gls -lah --color'
+alias ls='gls --color=auto'
+alias ll='gls -lah --color=auto'
+alias lz='eza -la --git --time-style relative --icons=auto --no-permissions --octal-permissions --group'
+
+# Dircolors
 eval `dircolors ~/.dircolors`
+export EZA_COLORS="uu=0:gu=0:sn=0:da=0:oc=0":$LS_COLORS
+
+# Yazi file manager
+function y() {
+	local tmp="$(mktemp -t "yazi-cwd.XXXXXX")" cwd
+	yazi "$@" --cwd-file="$tmp"
+	IFS= read -r -d '' cwd < "$tmp"
+	[ -n "$cwd" ] && [ "$cwd" != "$PWD" ] && builtin cd -- "$cwd"
+	rm -f -- "$tmp"
+}
 
 [[ ! -f ~/.nvm/nvm.sh ]] || source ~/.nvm/nvm.sh
