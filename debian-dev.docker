@@ -1,0 +1,130 @@
+########################
+# Build neovim
+########################
+FROM debian:stable AS nvim-build
+RUN apt-get update && apt-get install -y git curl cmake gettext
+RUN curl -LO https://github.com/neovim/neovim/archive/refs/tags/stable.tar.gz && \
+    tar -C /tmp -xzf stable.tar.gz
+WORKDIR /tmp/neovim-stable/
+RUN make CMAKE_BUILD_TYPE=Release CMAKE_INSTALL_PREFIX=/opt/nvim install
+
+########################
+# Build floskell
+########################
+FROM haskell:9.4-slim AS floskell-build
+WORKDIR /root/
+RUN git clone --depth 1 https://github.com/alexgerdes/floskell.git
+WORKDIR /root/floskell/
+RUN cabal update && cabal install 
+
+########################
+# Main image
+########################
+FROM debian:stable-slim
+
+LABEL maintainer="alexg@chalmers.se"
+LABEL version="0.2"
+LABEL description="Development with Neovim and GHC"
+
+ARG GIT_USER="Alex Gerdes"
+ARG GIT_MAIL="alexg@chalmers.se"
+ARG GHC=recommended
+ARG CABAL=recommended
+ARG HLS=recommended
+ARG YAZI_DEB_URL="https://github.com/sxyazi/yazi/releases/download/v26.1.22/yazi-aarch64-unknown-linux-gnu.deb"
+
+ENV WORKINGDIR=/root
+WORKDIR /root
+
+# ---- install everything in one apt transaction ----
+RUN set -eux; \
+    apt-get update; \
+    apt-get install -y --no-install-recommends \
+      # basics
+      sudo ssh git curl wget gpg zsh less ca-certificates lsb-release \
+      # tools
+      unzip jq fzf zoxide ripgrep fd-find bat tree trash-cli \
+      poppler-utils imagemagick lazygit eza \
+      # build deps for ghcup/cabal bits
+      build-essential pkg-config \
+      libffi-dev libgmp-dev libncurses-dev zlib1g-dev \
+      # yazi deps often needed
+      file \
+      # locales (NOT locales-all)
+      locales \
+      # python stuff
+      python3-venv \
+      # optional: if you truly need these, keep; otherwise remove
+      # tree-sitter-cli luarocks \
+    ; \
+    rm -rf /var/lib/apt/lists/*
+
+# Locale without locales-all
+RUN set -eux; \
+    sed -i 's/# en_US.UTF-8 UTF-8/en_US.UTF-8 UTF-8/' /etc/locale.gen; \
+    locale-gen; \
+    update-locale LANG=en_US.UTF-8
+ENV LC_ALL=en_US.UTF-8 \
+    LANG=en_US.UTF-8 \
+    LANGUAGE=en_US:en \
+    TZ=Europe/Stockholm
+
+# Known hosts (no extra whitespace escaping issues)
+RUN set -eux; \
+    mkdir -p /root/.ssh; \
+    touch /root/.ssh/known_hosts; \
+    ssh-keyscan github.com >> /root/.ssh/known_hosts; \
+    ssh-keyscan git.chalmers.se >> /root/.ssh/known_hosts
+
+# ---- Install ghcup (then clean caches) ----
+ENV BOOTSTRAP_HASKELL_NONINTERACTIVE=yes \
+    BOOTSTRAP_HASKELL_GHC_VERSION=$GHC \
+    BOOTSTRAP_HASKELL_CABAL_VERSION=$CABAL
+RUN set -eux; \
+    curl --proto '=https' --tlsv1.2 -sSf https://get-ghcup.haskell.org | sh; \
+    rm -rf /root/.cache
+
+ENV PATH=/root/.ghcup/bin:/root/.local/bin:/root/.cabal/bin:$PATH
+
+# Configure git
+RUN git config --global user.name "$GIT_USER" \
+ && git config --global user.email "$GIT_MAIL"
+
+# ---- Install yazi from .deb ----
+RUN set -eux; \
+    curl -fsSL "$YAZI_DEB_URL" -o /tmp/yazi.deb; \
+    apt-get update; \
+    apt-get install -y --no-install-recommends /tmp/yazi.deb; \
+    rm -f /tmp/yazi.deb; \
+    rm -rf /var/lib/apt/lists/*
+
+# ---- Node: prefer a single install (smaller than nvm) ----
+# If you want Node 22 specifically, NodeSource is usually much smaller than nvm.
+RUN set -eux; \
+    curl -fsSL https://deb.nodesource.com/setup_22.x | bash -; \
+    apt-get install -y --no-install-recommends nodejs; \
+    rm -rf /var/lib/apt/lists/*
+
+# ---- Copy in neovim + floskell ----
+COPY --from=nvim-build /opt/nvim /opt/nvim
+ENV PATH=/opt/nvim/bin:$PATH
+COPY --from=floskell-build /root/.local/bin/floskell /usr/local/bin/
+
+# ---- Oh My Zsh (still adds size, but ok) ----
+RUN set -eux; \
+    sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)" "" --unattended; \
+    git clone --depth=1 https://github.com/romkatv/powerlevel10k.git \
+      ${ZSH_CUSTOM:-/root/.oh-my-zsh/custom}/themes/powerlevel10k; \
+    rm -rf /root/.cache
+
+# Your dotfiles
+COPY dotfiles/.config /root/.config
+COPY dotfiles/.zshrc /root/
+COPY dotfiles/.dircolors /root/
+COPY dotfiles/.floskell.json /root/
+COPY zsh/. /root/
+
+# yazi plugin deps (needs yazi present)
+RUN ya pkg upgrade
+
+ENTRYPOINT ["/bin/zsh"]
