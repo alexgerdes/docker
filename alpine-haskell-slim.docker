@@ -1,0 +1,42 @@
+FROM alpine:3.20
+
+# Meta data about the image
+LABEL maintainer="alexg@chalmers.se"
+LABEL version="0.1"
+LABEL description="Development with GHC"
+
+# Arguments
+ARG GIT_USER="Alex Gerdes"
+ARG GIT_MAIL="alexg@chalmers.se"
+
+# Set working directory
+ENV WORKINGDIR=/root
+WORKDIR $WORKINGDIR
+
+# Install tools
+RUN apk add --no-cache \
+  git openssh curl wget zsh coreutils gzip unzip lzlib-dev zlib-dev \
+  neovim fzf ripgrep bat tree-sitter-cli fd lazygit ghc cabal
+
+# Set up environment variables
+ENV PATH=$WORKINGDIR/.local/bin:$WORKINGDIR/.cabal/bin:$PATH
+ENV TZ=Europe/Stockholm
+
+# Add github to SSH known hosts, the launch script will use SSH agent forwarding
+RUN mkdir ~/.ssh && \
+    touch ~/.ssh/known_hosts && \ 
+    ssh-keyscan github.com >> ~/.ssh/known_hosts && \
+    ssh-keyscan git.chalmers.se >> ~/.ssh/known_hosts
+
+# Configure GIT 
+RUN git config --global user.name $GIT_USER && \
+    git config --global user.email $GIT_MAIL
+
+# Configuration of ZSH terminal and Neovim
+RUN sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)"
+RUN git clone --depth=1 https://github.com/romkatv/powerlevel10k.git ${ZSH_CUSTOM:-$HOME/.oh-my-zsh/custom}/themes/powerlevel10k
+RUN ${WORKINGDIR}/.oh-my-zsh/custom/themes/powerlevel10k/gitstatus/install
+COPY dotfiles/.zshrc ${WORKINGDIR}/
+COPY dotfiles/.dircolors ${WORKINGDIR}/
+
+ENTRYPOINT ["/bin/zsh"]

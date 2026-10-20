@@ -1,0 +1,43 @@
+# Build MicroHs and install it in a separate stage
+
+FROM alpine:3.22 AS mhs
+WORKDIR /root
+RUN apk add --no-cache openssh git gcc musl-dev make
+RUN git clone --depth 1 https://github.com/augustss/MicroHs.git
+WORKDIR /root/MicroHs
+RUN make minstall
+
+# Main stage
+
+FROM alpine:3.22
+
+# Meta data about the image
+LABEL maintainer="alexg@chalmers.se"
+LABEL version="0.1"
+LABEL description="Development with MicroHs on Alpine Linux"
+
+# Set working directory
+ENV WORKINGDIR=/root
+WORKDIR $WORKINGDIR
+
+# Install tools
+RUN apk add --no-cache \
+  git openssh curl zsh coreutils \
+  fzf ripgrep fd lazygit
+
+# Set up environment variables
+ENV PATH=$WORKINGDIR/.local/bin:$WORKINGDIR/.mcabal/bin:$PATH
+ENV TZ=Europe/Stockholm
+
+# Configuration of ZSH terminal and Neovim
+RUN sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)"
+RUN git clone --depth=1 https://github.com/romkatv/powerlevel10k.git ${ZSH_CUSTOM:-$HOME/.oh-my-zsh/custom}/themes/powerlevel10k
+RUN ${WORKINGDIR}/.oh-my-zsh/custom/themes/powerlevel10k/gitstatus/install
+COPY dotfiles/.zshrc ${WORKINGDIR}/
+COPY dotfiles/.dircolors ${WORKINGDIR}/
+COPY zsh/.p10k.zsh.alpine-slim ${WORKINGDIR}/.p10k.zsh
+
+# Copy MicroHs from the build stage
+COPY --from=mhs /root/.mcabal /root/.mcabal
+
+ENTRYPOINT ["/bin/zsh"]

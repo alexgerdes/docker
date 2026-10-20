@@ -1,26 +1,12 @@
 # Based on Alejandro Russo's docker neo-h docker image.
 
-# Build bat and tree-sitter dependencies
+# tree-sitter
 FROM rust:slim AS rust
-RUN cargo install bat
 RUN cargo install tree-sitter-cli
 
-# Build lazygit
-FROM golang:bookworm AS golang
-ENV GOBIN=/usr/local/bin/
-RUN go install github.com/jesseduffield/lazygit@latest
-
-# Build fzf and neovim 
-FROM debian:stable AS build 
-
-RUN apt-get update && apt-get install -y git curl cmake gettext
-
-# Fuzzy find filer
-RUN git clone --depth 1 https://github.com/junegunn/fzf.git /tmp/fzf
-WORKDIR /tmp/fzf
-RUN ./install --all  
-
 # Neovim 
+FROM debian:stable AS build 
+RUN apt-get update && apt-get install -y git curl cmake gettext
 RUN curl -LO https://github.com/neovim/neovim/archive/refs/tags/stable.tar.gz && \
     tar -C /tmp -xzf stable.tar.gz
 WORKDIR /tmp/neovim-stable/
@@ -59,12 +45,11 @@ RUN apt-get update && \
       locales locales-all ca-certificates lsb-release less zlib1g-dev
 
 # Install ghcup dependencies
-RUN apt-get install -y --no-install-recommends \
-      build-essential libffi-dev libgmp-dev libgmp10 \
-      libncurses-dev libncurses5 libtinfo5
+RUN apt-get install -y build-essential curl libffi-dev libffi8 libgmp-dev \
+                       libgmp10 libncurses-dev libncurses6 libtinfo6 pkg-config
 
 # Install useful command line tools
-RUN apt-get install -y trash-cli coreutils unzip ripgrep fd-find luarocks python3.11-venv
+RUN apt-get install -y coreutils unzip ripgrep fzf lazygit fd-find luarocks python3
 
 RUN luarocks install jsregexp
 
@@ -82,7 +67,7 @@ ENV LC_ALL=en_US.UTF-8 \
 ENV TZ=Europe/Stockholm
 
 # Add github to SSH known hosts, the launch script will use SSH agent forwarding
-RUN mkdir ~/.ssh && \
+RUN mkdir -p ~/.ssh && \
     touch ~/.ssh/known_hosts && \ 
     ssh-keyscan github.com >> ~/.ssh/known_hosts && \
     ssh-keyscan git.chalmers.se >> ~/.ssh/known_hosts
@@ -101,11 +86,8 @@ RUN git config --global user.name $GIT_USER && \
 # Install neovim and utilities from previous builds
 COPY --from=build /opt/nvim /opt/nvim
 ENV PATH=/opt/nvim/bin:$PATH
-COPY --from=rust /usr/local/cargo/bin/bat /usr/local/bin/
 COPY --from=rust /usr/local/cargo/bin/tree-sitter /usr/local/bin/
-COPY --from=build /tmp/fzf/bin/fzf /usr/local/bin/
 COPY --from=haskell /root/.local/bin/floskell /usr/local/bin/
-COPY --from=golang /usr/local/bin/lazygit /usr/local/bin/
 
 # Configuration of ZSH terminal and Neovim
 RUN sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)"
