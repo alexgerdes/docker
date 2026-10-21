@@ -15,7 +15,7 @@ WORKDIR ${HOME}
 
 # Install tools
 RUN apk update && \
-    apk add --no-cache ghc cabal fzf ripgrep lazygit neovim bat tree-sitter-cli
+    apk add --no-cache ghc cabal fzf ripgrep lazygit neovim bat tree-sitter-cli hlint
 
 # Run next commands as user
 RUN chown -R ${USER_NAME}:${USER_NAME} ${HOME}
