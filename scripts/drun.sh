@@ -27,15 +27,21 @@ elif [ $WORKDIR -ef $HOME ] || [ $WORKDIR -ef "/" ]; then
   usage
 fi
 
+# Directory for persistent per-image state. Strip the tag (e.g. ':latest'),
+# since a colon in the path breaks the -v src:dst[:mode] syntax.
+NAME=$IMAGE
+[[ ${IMAGE##*/} == *:* ]] && NAME=${IMAGE%:*}
+STATE=~/.docker_img/$NAME
+
 echo "Launching a container from the $IMAGE image..."
 
 # Start container with SSH agent forwarding
 docker run --rm -it \
   --mount type=bind,src=/run/host-services/ssh-auth.sock,target=/run/host-services/ssh-auth.sock \
   -e SSH_AUTH_SOCK="/run/host-services/ssh-auth.sock" \
-  -v ~/.docker_img/$IMAGE/cache:/root/.cache \
-  -v ~/.docker_img/$IMAGE/local:/root/.local \
-  -v ~/.docker_img/$IMAGE/zsh_history:/zsh_history \
+  -v $STATE/cache:/root/.cache \
+  -v $STATE/local:/root/.local \
+  -v $STATE/zsh_history:/zsh_history \
   -v $WORKDIR:/workspace \
   -w /workspace \
   $IMAGE
