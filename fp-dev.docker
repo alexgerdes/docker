@@ -15,7 +15,8 @@ WORKDIR ${HOME}
 
 # Install tools
 RUN apk update && \
-    apk add --no-cache ghc cabal fzf ripgrep lazygit neovim bat tree-sitter-cli hlint
+    apk add --no-cache ghc cabal hlint \
+      fzf ripgrep lazygit neovim bat tree-sitter-cli
 
 # Run next commands as user
 RUN chown -R ${USER_NAME}:${USER_NAME} ${HOME}
@@ -28,7 +29,8 @@ ENV PATH=$PATH:${HOME}/.local/bin
 RUN if $HLS ; then cabal update && cabal install haskell-language-server ; fi
 
 # Use nice command line theme
-RUN git clone --depth=1 https://github.com/romkatv/powerlevel10k.git ${ZSH_CUSTOM:-$HOME/.oh-my-zsh/custom}/themes/powerlevel10k
+RUN git clone --depth=1 https://github.com/romkatv/powerlevel10k.git \
+  ${ZSH_CUSTOM:-$HOME/.oh-my-zsh/custom}/themes/powerlevel10k
 RUN ${HOME}/.oh-my-zsh/custom/themes/powerlevel10k/gitstatus/install
 
 COPY zsh/.zshrc.introfp ${HOME}/.zshrc
@@ -38,7 +40,8 @@ COPY zsh/.p10k.zsh.introfp ${HOME}/.p10k.zsh
 RUN git config --global --add safe.directory '*'
 
 # Install dependencies
-RUN cabal update && cabal install --global --lib QuickCheck directory random ansi-terminal time hspec
+RUN cabal update && cabal install --global --lib QuickCheck directory random \
+  ansi-terminal time hspec hspec-api fitspec threepenny-gui
 
 # Start with ZSH
 ENTRYPOINT ["/bin/zsh"]
